@@ -1,0 +1,10 @@
+.git
+.claude
+data
+deploy
+node_modules
+*.db
+*.db-wal
+*.db-shm
+.env
+README.md

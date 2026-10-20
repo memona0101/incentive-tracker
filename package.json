@@ -1,0 +1,17 @@
+{
+  "name": "incentive-tracker",
+  "version": "1.0.0",
+  "description": "Employee incentive tracker — daily measure logging, approvals, live leaderboard.",
+  "main": "server/server.js",
+  "type": "commonjs",
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "reset": "node server/server.js --reset-db --exit",
+    "test": "node --test server/calc.test.js"
+  }
+}

@@ -25,7 +25,13 @@ npm run reset   # wipe the database and re-seed the demo data
 npm test        # unit tests for the calculation logic
 ```
 
-Environment variables: `PORT` (default 3000), `HOST` (default `127.0.0.1`; use `0.0.0.0` to share on your network), `DEMO=0` hides the demo-account shortcuts on the sign-in page, and `DB_FILE` sets a custom database path.
+Environment variables: `PORT` (default 3000), `HOST` (default `127.0.0.1`; use `0.0.0.0` to share on your network), `DB_FILE` sets a custom database path, and `DEMO=0` hides the demo-account shortcuts on the sign-in page.
+
+**Production mode** (`NODE_ENV=production`, or `SEED_DEMO=0`) never creates demo data or example files. On the first start, with an empty database, it creates one administrator from `ADMIN_EMAIL`, `ADMIN_NAME` and `ADMIN_PASSWORD` (at least 10 characters), and refuses to start without them. `npm run reset` is disabled in production. `COOKIE_SECURE=1` (or an `X-Forwarded-Proto: https` header from a reverse proxy) marks the sign-in cookie Secure.
+
+## Deploy on the office server
+
+The app runs next to WBT People behind its Caddy at `https://incentive.wbtpk.com`, using `docker-compose.yml`, the `Dockerfile` and the files in `deploy/`. Step-by-step instructions, backups, updates and restores are in **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
 
 ## Features
 
