@@ -22,6 +22,7 @@ services:
       HOST: 0.0.0.0
       PORT: "3000"
       DB_FILE: /data/incentives.db
+      TRUST_PROXY: "1"           # only Caddy can reach this container, so trust its X-Forwarded-For
     volumes:
       - incentive-data:/data
     networks: [default, edge]

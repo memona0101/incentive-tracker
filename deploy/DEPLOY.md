@@ -28,9 +28,11 @@ Browser ── https://hrm.wbtpk.com ────────┤
 
 These need other people, so ask early.
 
-1. **Andrew: the one-time HRM change** (section 5 of the server handoff). He adds
-   `import /etc/caddy/sites/*.caddy` to the HRM Caddyfile and mounts `/opt/caddy-sites` into the
-   HRM's Caddy, then runs the HRM's `update.sh`. After that, new sites are just a file in `/opt/caddy-sites`.
+1. **Andrew: the one-time HRM change** (section 5 of the server handoff). The HRM repo adds
+   `import /etc/caddy/sites/*.caddy` to its Caddyfile and mounts `/opt/caddy-sites` into the HRM's Caddy.
+   On the server, Andrew creates the folder **before** updating the HRM (otherwise Docker creates it owned by root):
+   `sudo mkdir -p /opt/caddy-sites && sudo chown aharris:aharris /opt/caddy-sites`, then
+   `cd /opt/wbt-people && bash deploy/scripts/update.sh`. After that, new sites are just a file in `/opt/caddy-sites`.
 2. **IT: the DNS name.** Ask IT to add `incentive.wbtpk.com → 192.168.50.150` to the office DNS
    (`192.168.50.50`), the same way as `hrm.wbtpk.com`.
 3. **Your server account.** The handoff was written for `aharris`; you sign in as `abennett`. Steps 2
@@ -117,17 +119,18 @@ cp /opt/incentive/deploy/caddy/incentive.caddy /opt/caddy-sites/incentive.caddy
 ```
 If that says *Permission denied*, ask Andrew to run `sudo chown aharris:docker /opt/caddy-sites && sudo chmod 775 /opt/caddy-sites`, then try again.
 
-Restart Caddy (both sites are down for 2–5 seconds):
+Restart Caddy (both sites are down for 2–5 seconds). Use plain `docker` here, not `docker compose` inside
+`/opt/wbt-people`: that needs to read the HRM's private `.env`, which only `aharris` can open.
 ```bash
-cd /opt/wbt-people && docker compose restart caddy
+docker restart wbt-people-caddy-1
 ```
 ```bash
-docker compose logs --tail=30 caddy
+docker logs --tail=30 wbt-people-caddy-1
 ```
 There should be no `error` lines about `incentive.caddy`. **If Caddy won't start, the HRM is down too.**
 Move the file aside and restart Caddy, then send a screenshot of the error:
 ```bash
-mv /opt/caddy-sites/incentive.caddy /tmp/ && docker compose restart caddy
+mv /opt/caddy-sites/incentive.caddy /tmp/ && docker restart wbt-people-caddy-1
 ```
 
 ### 9. Test
@@ -211,4 +214,5 @@ Only if something went wrong. This replaces the current database with the backup
 | `COOKIE_SECURE` | `1` marks the sign-in cookie HTTPS-only. Leave it on. |
 
 Set by `docker-compose.yml` (no need to change): `NODE_ENV=production` (no demo data, no demo sign-in
-buttons), `TZ=Asia/Karachi`, `HOST=0.0.0.0`, `PORT=3000`, `DB_FILE=/data/incentives.db`.
+buttons), `TZ=Asia/Karachi`, `HOST=0.0.0.0`, `PORT=3000`, `DB_FILE=/data/incentives.db`, `TRUST_PROXY=1`
+(sign-in lockouts use the real PC's address that Caddy passes on, not Caddy's own).

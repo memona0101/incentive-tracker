@@ -309,11 +309,18 @@ function secureFlag(req) {
   return process.env.COOKIE_SECURE === '1' || proto === 'https' ? '; Secure' : '';
 }
 
+// Behind Caddy every connection comes from the proxy. TRUST_PROXY=1 uses the client address it appends to
+// X-Forwarded-For instead (the last entry: earlier ones could be sent by the browser itself).
+function clientIp(req) {
+  const fwd = process.env.TRUST_PROXY === '1' && String(req.headers['x-forwarded-for'] || '').split(',').pop().trim();
+  return fwd || req.socket.remoteAddress;
+}
+
 route('POST', /^\/api\/auth\/login$/, { auth: false }, async (req, res) => {
   const body = await readJson(req);
   const email = str(body.email, 200).toLowerCase();
   const password = typeof body.password === 'string' ? body.password : '';
-  const key = `${req.socket.remoteAddress}|${email}`;
+  const key = `${clientIp(req)}|${email}`;
   checkLoginThrottle(key);
   if (!email || !password) throw bad('Enter your email and password.');
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
@@ -759,6 +766,11 @@ const server = http.createServer(async (req, res) => {
     send(res, 500, { error: 'Something went wrong on our side. Please try again.' });
   }
 });
+
+// Keep idle connections open longer than Caddy does (2 min), or Caddy may reuse one Node just closed and
+// answer 502. headersTimeout must stay above keepAliveTimeout.
+server.keepAliveTimeout = 125_000;
+server.headersTimeout = 130_000;
 
 server.listen(PORT, HOST, () => {
   console.log(`Incentive Tracker running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
