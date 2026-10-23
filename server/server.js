@@ -346,6 +346,26 @@ route('POST', /^\/api\/auth\/logout$/, { auth: false }, async (req, res) => {
 
 route('GET', /^\/api\/me$/, {}, async (req, res, { user }) => send(res, 200, { user: publicUser(user) }));
 
+// Anyone signed in can change their own password; it signs out their other devices, not this one.
+route('POST', /^\/api\/me\/password$/, {}, async (req, res, { user }) => {
+  const body = await readJson(req);
+  const key = `password|${user.id}`;
+  checkLoginThrottle(key);
+  const current = typeof body.current === 'string' ? body.current : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+  if (!dbm.verifyPassword(current, user.password_hash)) {
+    noteLoginFailure(key);
+    throw bad('Your current password is not correct.', { field: 'current' });
+  }
+  loginFailures.delete(key);
+  if (password.length < 8) throw bad('Use at least 8 characters.', { field: 'password' });
+  if (password === current) throw bad('Choose a password different from your current one.', { field: 'password' });
+  const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(dbm.hashPassword(password), user.id);
+  db.prepare('DELETE FROM sessions WHERE user_id = ? AND token <> ?').run(user.id, token);
+  send(res, 200, { ok: true });
+});
+
 route('GET', /^\/api\/config$/, { auth: false }, async (req, res) => send(res, 200, {
   currency: process.env.CURRENCY || 'USD', backdateLimitDays: BACKDATE_LIMIT_DAYS, maxPatients: MAX_PATIENTS,
   demo: process.env.DEMO ? process.env.DEMO !== '0' : dbm.SEED_DEMO, // demo sign-in shortcuts

@@ -1,5 +1,5 @@
 // App bootstrap: session, shell, hash router and live updates (Server-Sent Events).
-import { html, raw, $, $$, api, state, icon, brandMark, avatar, toast, plural, debounce, store } from './lib.js';
+import { html, raw, $, $$, api, state, icon, brandMark, avatar, toast, plural, debounce, store, modal, fieldError, setBusy } from './lib.js';
 import { renderLogin } from './views/login.js';
 import * as employee from './views/employee.js';
 import * as board from './views/leaderboard.js';
@@ -41,6 +41,7 @@ function renderShell() {
         <span class="live" id="live" title="Live updates"><span class="dot"></span><span class="live-text hide-sm">Connecting…</span></span>
         <button class="icon-btn bordered" type="button" data-action="theme" aria-label="Toggle dark mode" id="theme-btn"></button>
         <div class="user-chip">${avatar(u)}<div class="meta"><div class="name">${u.name}</div><div class="role">${u.title || (u.role === 'admin' ? 'Administrator' : 'Employee')}</div></div></div>
+        <button class="icon-btn bordered" type="button" data-action="password" aria-label="Change password" title="Change password">${icon('key')}</button>
         <button class="icon-btn bordered" type="button" data-action="logout" aria-label="Sign out" title="Sign out">${icon('logout')}</button>
       </div>
     </header>
@@ -151,8 +152,36 @@ document.addEventListener('click', async (e) => {
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem('it-theme', next); } catch { /* ignore */ }
     updateThemeButton();
-  } else if (a.dataset.action === 'retry') navigate();
+  } else if (a.dataset.action === 'password') changePassword();
+  else if (a.dataset.action === 'retry') navigate();
 });
+
+function changePassword() {
+  modal({
+    title: 'Change password', desc: 'Your other devices will be signed out. This one stays signed in.',
+    body: html`<form id="my-pw-form" novalidate>
+      <div class="field"><label for="pw-cur">Current password</label><input class="input" id="pw-cur" name="current" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="pw-new">New password</label><input class="input" id="pw-new" name="password" type="password" autocomplete="new-password" minlength="8" required><div class="hint">At least 8 characters.</div></div>
+      <div class="field"><label for="pw-again">Confirm new password</label><input class="input" id="pw-again" name="confirm" type="password" autocomplete="new-password" required></div>
+    </form>`,
+    foot: html`<button class="btn btn-secondary" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit" form="my-pw-form">Change password</button>`,
+    onMount(el, close) {
+      const form = el.querySelector('form');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!form.current.value) return fieldError(form, 'current', 'Enter your current password.');
+        if (form.password.value.length < 8) return fieldError(form, 'password', 'Use at least 8 characters.');
+        if (form.confirm.value !== form.password.value) return fieldError(form, 'confirm', 'The two new passwords don’t match.');
+        const btn = el.querySelector('.modal-foot .btn-primary');
+        setBusy(btn, true);
+        try {
+          await api('POST', '/api/me/password', { current: form.current.value, password: form.password.value });
+          close(); toast('success', 'Password changed', 'Use your new password next time you sign in.');
+        } catch (err) { setBusy(btn, false); fieldError(form, err.field, err.message); }
+      });
+    },
+  });
+}
 
 function signedIn(user) {
   state.user = user;
