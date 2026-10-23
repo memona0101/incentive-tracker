@@ -303,7 +303,8 @@ export async function team({ root, isStale }) {
           <td class="r num hide-xs">${u.pending ? html`<span class="badge pending">${u.pending}</span>` : '0'}</td>
           <td class="hide-xs">${u.last_entry ? fmtDate(u.last_entry) : '—'}</td>
           <td class="c"><label class="switch" title="${u.active ? 'Deactivate' : 'Activate'}"><input type="checkbox" data-toggle="${u.id}" ${u.active ? raw('checked') : ''} ${u.id === state.user.id ? raw('disabled') : ''} aria-label="${u.name} active"><span></span></label></td>
-          <td><div class="actions"><button class="icon-btn" type="button" data-pw="${u.id}" aria-label="Reset password for ${u.name}" title="Reset password">${icon('key', 'sm')}</button></div></td>
+          <td><div class="actions"><button class="icon-btn" type="button" data-pw="${u.id}" aria-label="Reset password for ${u.name}" title="Reset password">${icon('key', 'sm')}</button>
+            ${u.role === 'employee' ? html`<button class="icon-btn danger" type="button" data-del="${u.id}" aria-label="Delete ${u.name}" title="Delete employee">${icon('trash', 'sm')}</button>` : ''}</div></td>
         </tr>`)}</tbody></table></div></section>`);
   }
 
@@ -318,8 +319,21 @@ export async function team({ root, isStale }) {
     catch (err) { t.checked = !t.checked; toast('error', 'Update failed', err.message); }
   }, { signal: ac.signal });
 
-  root.addEventListener('click', (e) => {
+  root.addEventListener('click', async (e) => {
     if (e.target.closest('[data-add]')) return addUser(load);
+    const del = e.target.closest('[data-del]');
+    if (del) {
+      const u = items.find((x) => x.id === Number(del.dataset.del));
+      const ok = await confirmDialog({
+        title: `Delete ${u.name}?`,
+        desc: `This permanently deletes their account${u.records ? ` and all ${plural(u.records, 'record')} they submitted, so they disappear from every leaderboard and the Hall of Fame` : ''}. It can’t be undone. To only block sign-in and keep their records, switch Active off instead.`,
+        confirmLabel: 'Delete permanently', danger: true,
+      });
+      if (!ok) return;
+      try { await api('DELETE', `/api/users/${u.id}`); toast('success', `${u.name} deleted`); load(); }
+      catch (err) { toast('error', 'Delete failed', err.message); }
+      return;
+    }
     const pw = e.target.closest('[data-pw]');
     if (pw) {
       const u = items.find((x) => x.id === Number(pw.dataset.pw));

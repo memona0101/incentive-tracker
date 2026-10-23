@@ -682,6 +682,7 @@ route('GET', /^\/api\/users$/, { admin: true }, async (req, res) => {
       COALESCE(SUM(CASE WHEN r.status='approved' THEN r.patients END),0) AS patients,
       COALESCE(SUM(CASE WHEN r.status='approved' THEN r.patients*r.rate_cents END),0) AS amount_cents,
       COUNT(CASE WHEN r.status='pending' THEN 1 END) AS pending,
+      COUNT(r.id) AS records,
       MAX(r.date) AS last_entry
     FROM users u LEFT JOIN records r ON r.user_id = u.id
     GROUP BY u.id ORDER BY u.role DESC, u.active DESC, u.name`).all();
@@ -728,6 +729,24 @@ route('PATCH', /^\/api\/users\/(\d+)$/, { admin: true }, async (req, res, { user
   }
   broadcast('user.changed', { userId: id });
   send(res, 200, { item: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id)) });
+});
+
+// Permanently removes an employee and all their records (deactivating keeps them). Admin accounts can't be deleted.
+route('DELETE', /^\/api\/users\/(\d+)$/, { admin: true }, async (req, res, { params }) => {
+  const id = Number(params[0]);
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!u) throw new HttpError(404, 'User not found.');
+  if (u.role !== 'employee') throw bad('Only employee accounts can be deleted.');
+  let records;
+  db.exec('BEGIN');
+  try {
+    records = Number(db.prepare('DELETE FROM records WHERE user_id = ?').run(id).changes);
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  broadcast('user.changed', { userId: id });
+  send(res, 200, { ok: true, records });
 });
 
 // ---------------------------------------------------------------- static files

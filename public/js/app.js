@@ -156,17 +156,33 @@ document.addEventListener('click', async (e) => {
   else if (a.dataset.action === 'retry') navigate();
 });
 
+// Password input with a show/hide eye button (styled by .pw-wrap).
+function pwField(id, name, label, autocomplete, hint = '') {
+  return html`<div class="field"><label for="${id}">${label}</label>
+    <div class="pw-wrap"><input class="input" id="${id}" name="${name}" type="password" autocomplete="${autocomplete}" required>
+      <button class="icon-btn" type="button" data-show-pw aria-label="Show password" aria-pressed="false">${icon('eye', 'sm')}</button></div>
+    ${hint ? html`<div class="hint">${hint}</div>` : ''}</div>`;
+}
+
 function changePassword() {
   modal({
     title: 'Change password', desc: 'Your other devices will be signed out. This one stays signed in.',
     body: html`<form id="my-pw-form" novalidate>
-      <div class="field"><label for="pw-cur">Current password</label><input class="input" id="pw-cur" name="current" type="password" autocomplete="current-password" required></div>
-      <div class="field"><label for="pw-new">New password</label><input class="input" id="pw-new" name="password" type="password" autocomplete="new-password" minlength="8" required><div class="hint">At least 8 characters.</div></div>
-      <div class="field"><label for="pw-again">Confirm new password</label><input class="input" id="pw-again" name="confirm" type="password" autocomplete="new-password" required></div>
+      ${pwField('pw-cur', 'current', 'Current password', 'current-password')}
+      ${pwField('pw-new', 'password', 'New password', 'new-password', 'At least 8 characters.')}
+      ${pwField('pw-again', 'confirm', 'Confirm new password', 'new-password')}
     </form>`,
     foot: html`<button class="btn btn-secondary" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit" form="my-pw-form">Change password</button>`,
     onMount(el, close) {
       const form = el.querySelector('form');
+      form.addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-show-pw]'); if (!b) return;
+        const input = b.previousElementSibling; const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        b.innerHTML = String(icon(show ? 'eyeOff' : 'eye', 'sm'));
+        b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        b.setAttribute('aria-pressed', String(show));
+      });
       form.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         if (!form.current.value) return fieldError(form, 'current', 'Enter your current password.');
