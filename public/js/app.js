@@ -1,5 +1,9 @@
 // App bootstrap: session, shell, hash router and live updates (Server-Sent Events).
+<<<<<<< HEAD
 import { html, raw, $, $$, api, state, icon, brandMark, avatar, toast, plural, debounce, store } from './lib.js';
+=======
+import { html, raw, $, $$, api, state, icon, brandMark, avatar, toast, plural, debounce, store, modal, fieldError, setBusy } from './lib.js';
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
 import { renderLogin } from './views/login.js';
 import * as employee from './views/employee.js';
 import * as board from './views/leaderboard.js';
@@ -41,6 +45,10 @@ function renderShell() {
         <span class="live" id="live" title="Live updates"><span class="dot"></span><span class="live-text hide-sm">Connecting…</span></span>
         <button class="icon-btn bordered" type="button" data-action="theme" aria-label="Toggle dark mode" id="theme-btn"></button>
         <div class="user-chip">${avatar(u)}<div class="meta"><div class="name">${u.name}</div><div class="role">${u.title || (u.role === 'admin' ? 'Administrator' : 'Employee')}</div></div></div>
+<<<<<<< HEAD
+=======
+        <button class="icon-btn bordered" type="button" data-action="password" aria-label="Change password" title="Change password">${icon('key')}</button>
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
         <button class="icon-btn bordered" type="button" data-action="logout" aria-label="Sign out" title="Sign out">${icon('logout')}</button>
       </div>
     </header>
@@ -151,9 +159,59 @@ document.addEventListener('click', async (e) => {
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem('it-theme', next); } catch { /* ignore */ }
     updateThemeButton();
+<<<<<<< HEAD
   } else if (a.dataset.action === 'retry') navigate();
 });
 
+=======
+  } else if (a.dataset.action === 'password') changePassword();
+  else if (a.dataset.action === 'retry') navigate();
+});
+
+// Password input with a show/hide eye button (styled by .pw-wrap).
+function pwField(id, name, label, autocomplete, hint = '') {
+  return html`<div class="field"><label for="${id}">${label}</label>
+    <div class="pw-wrap"><input class="input" id="${id}" name="${name}" type="password" autocomplete="${autocomplete}" required>
+      <button class="icon-btn" type="button" data-show-pw aria-label="Show password" aria-pressed="false">${icon('eye', 'sm')}</button></div>
+    ${hint ? html`<div class="hint">${hint}</div>` : ''}</div>`;
+}
+
+function changePassword() {
+  modal({
+    title: 'Change password', desc: 'Your other devices will be signed out. This one stays signed in.',
+    body: html`<form id="my-pw-form" novalidate>
+      ${pwField('pw-cur', 'current', 'Current password', 'current-password')}
+      ${pwField('pw-new', 'password', 'New password', 'new-password', 'At least 8 characters.')}
+      ${pwField('pw-again', 'confirm', 'Confirm new password', 'new-password')}
+    </form>`,
+    foot: html`<button class="btn btn-secondary" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit" form="my-pw-form">Change password</button>`,
+    onMount(el, close) {
+      const form = el.querySelector('form');
+      form.addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-show-pw]'); if (!b) return;
+        const input = b.previousElementSibling; const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        b.innerHTML = String(icon(show ? 'eyeOff' : 'eye', 'sm'));
+        b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        b.setAttribute('aria-pressed', String(show));
+      });
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!form.current.value) return fieldError(form, 'current', 'Enter your current password.');
+        if (form.password.value.length < 8) return fieldError(form, 'password', 'Use at least 8 characters.');
+        if (form.confirm.value !== form.password.value) return fieldError(form, 'confirm', 'The two new passwords don’t match.');
+        const btn = el.querySelector('.modal-foot .btn-primary');
+        setBusy(btn, true);
+        try {
+          await api('POST', '/api/me/password', { current: form.current.value, password: form.password.value });
+          close(); toast('success', 'Password changed', 'Use your new password next time you sign in.');
+        } catch (err) { setBusy(btn, false); fieldError(form, err.field, err.message); }
+      });
+    },
+  });
+}
+
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
 function signedIn(user) {
   state.user = user;
   store.set('it-last-email', user.email);

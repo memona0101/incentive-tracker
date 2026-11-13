@@ -115,6 +115,7 @@ export async function logRecord({ root, isStale }) {
   const MAX_ROWS = 20;
   const minDate = addDays(todayIso(), -state.config.backdateLimitDays);
   let keySeq = 0;
+<<<<<<< HEAD
   const newRow = () => ({ key: ++keySeq, fileId: '', fileText: '', measureName: '', patients: 1 });
   // File name is typed (with suggestions from the admin's list); it only counts once it matches a listed file exactly.
   const fileByName = (v) => { const n = String(v || '').trim().replace(/\s+/g, ' ').toLowerCase(); return n ? files.find((f) => f.name.toLowerCase() === n) : undefined; };
@@ -123,6 +124,9 @@ export async function logRecord({ root, isStale }) {
     const hits = files.filter((f) => f.name.toLowerCase().includes(n));
     return hits.length === 1 ? hits[0] : undefined;
   };
+=======
+  const newRow = () => ({ key: ++keySeq, fileId: '', measureName: '', patients: 1 });
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
   let date = todayIso();
   let rows = [newRow()];
   let existing = [];
@@ -137,8 +141,15 @@ export async function logRecord({ root, isStale }) {
       <div class="entry-head"><span class="t">File ${i + 1}</span>
         <button type="button" class="icon-btn danger" data-remove aria-label="Remove file ${i + 1}" ${rows.length === 1 ? raw('disabled style="visibility:hidden"') : ''}>${icon('trash', 'sm')}</button></div>
       <div class="field"><label for="f-${row.key}">File name</label>
+<<<<<<< HEAD
         <input class="input" id="f-${row.key}" name="file-${row.key}" data-field="fileId" type="text" list="file-options" autocomplete="off" spellcheck="false"
           placeholder="${files.length ? 'Type or pick a file name' : 'No files available yet'}" value="${row.fileText}" required ${files.length ? '' : raw('disabled')}></div>
+=======
+        <select class="select" id="f-${row.key}" name="file-${row.key}" data-field="fileId" required ${files.length ? '' : raw('disabled')}>
+          <option value="">${files.length ? 'Select a file…' : 'No files available yet'}</option>
+          ${files.map((f) => html`<option value="${f.id}" ${Number(row.fileId) === f.id ? raw('selected') : ''}>${f.name}</option>`)}
+        </select></div>
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
       <div class="field"><label for="m-${row.key}">Measure</label>
         <input class="input" id="m-${row.key}" name="measure-${row.key}" data-field="measureName" type="text" maxlength="80" autocomplete="off"
           placeholder="e.g. Annual Wellness Visit or 101" value="${row.measureName}" aria-describedby="mh-${row.key}" required>
@@ -186,6 +197,7 @@ export async function logRecord({ root, isStale }) {
 
   function renderRows() {
     const box = $('#rows', root); if (!box) return;
+<<<<<<< HEAD
     for (const r of rows) { // the list may have changed (file renamed or hidden by an admin)
       const f = fileById(r.fileId) || fileByName(r.fileText);
       r.fileId = f ? f.id : '';
@@ -194,6 +206,11 @@ export async function logRecord({ root, isStale }) {
     const notice = files.length ? '' : html`<div class="alert warn" role="status">${icon('alert')}<span>No files are available yet. Ask an administrator to add one on the Files page.</span></div>`;
     const options = html`<datalist id="file-options">${files.map((f) => html`<option value="${f.name}"></option>`)}</datalist>`;
     box.innerHTML = String(html`${notice}${options}${rows.map(rowHtml)}`);
+=======
+    for (const r of rows) if (r.fileId && !fileById(r.fileId)) r.fileId = ''; // file was hidden by an admin
+    const notice = files.length ? '' : html`<div class="alert warn" role="status">${icon('alert')}<span>No files are available yet. Ask an administrator to add one on the Files page.</span></div>`;
+    box.innerHTML = String(html`${notice}${rows.map(rowHtml)}`);
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
   }
 
   function updateSummary() {
@@ -231,7 +248,11 @@ export async function logRecord({ root, isStale }) {
     const t = e.target;
     const row = rowFor(t); if (!row) return;
     if (t.dataset.field === 'patients') row.patients = t.value === '' ? '' : Number(t.value);
+<<<<<<< HEAD
     if (t.dataset.field === 'fileId') { row.fileText = t.value; row.fileId = fileByName(t.value)?.id ?? ''; }
+=======
+    if (t.dataset.field === 'fileId') row.fileId = t.value;
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
     if (t.dataset.field === 'measureName') row.measureName = t.value;
     if (t.getAttribute('aria-invalid')) fieldError($('#log-form', root), null, null);
     if (t.dataset.field === 'patients') checkPatients(row);
@@ -251,11 +272,14 @@ export async function logRecord({ root, isStale }) {
     const t = e.target;
     if (t.id === 'log-date') { if (t.value) setDate(t.value); return; }
     const row = rowFor(t); if (!row) return;
+<<<<<<< HEAD
     if (t.dataset.field === 'fileId') {
       // On leaving the box: tidy an exact match to the listed spelling, or accept a partial name that fits only one file.
       const f = fileByName(t.value) || fileByPartial(t.value);
       if (f) { row.fileId = f.id; row.fileText = t.value = f.name; updateSummary(); }
     }
+=======
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
   }, { signal: ac.signal });
 
   root.addEventListener('click', (e) => {
@@ -285,7 +309,11 @@ export async function logRecord({ root, isStale }) {
     const seen = new Set();
     const logged = new Set(existing.filter((r) => r.status !== 'rejected').map((r) => fileKey(r.file_name, r.measure_name)));
     for (const r of rows) {
+<<<<<<< HEAD
       if (!fileById(r.fileId)) return fieldError(form, `file-${r.key}`, r.fileText.trim() ? 'No file matches that name. Pick one from the list, or remove this entry.' : 'Type or pick a file name, or remove this entry.');
+=======
+      if (!fileById(r.fileId)) return fieldError(form, `file-${r.key}`, 'Choose a file, or remove this entry.');
+>>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
       if (!normName(r.measureName)) return fieldError(form, `measure-${r.key}`, 'Enter the measure name or number for this file.');
       if (!validPatients(r)) return fieldError(form, `patients-${r.key}`, `Enter a whole number from 1 to ${max}.`);
       const k = fileKey(fileById(r.fileId).name, r.measureName);
