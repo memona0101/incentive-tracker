@@ -1,0 +1,21 @@
+# Incentive Tracker site for the shared WBT People Caddy.
+# Copy to /opt/caddy-sites/incentive.caddy on the server, then: cd /opt/wbt-people && docker compose restart caddy
+# The tls-* snippets, {$TLS_MODE} and {$ALLOWED_IPS} come from the HRM's Caddyfile and .env, so this site gets
+# the same internal certificate and the same office + Tailscale-only restriction as hrm.wbtpk.com.
+incentive.wbtpk.com {
+	import tls-{$TLS_MODE}
+
+	@outside not remote_ip {$ALLOWED_IPS}
+	respond @outside "This app is only available on the office network." 403
+
+	# Compress everything except the live-updates stream, which must reach the browser unbuffered.
+	@compressible not path /api/events
+	encode @compressible zstd gzip
+
+	request_body {
+		max_size 2MB
+	}
+
+	# One container serves both the pages and the /api/* endpoints.
+	reverse_proxy incentive-web:3000
+}

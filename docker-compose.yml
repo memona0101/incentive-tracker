@@ -1,0 +1,54 @@
+# Incentive Tracker on the office server, next to WBT People (see deploy/DEPLOY.md).
+# - No published ports: the HRM's Caddy (project wbt-people) serves https://incentive.wbtpk.com and reaches
+#   incentive-web over the shared wbt-people_default network.
+# - Service names are prefixed with "incentive-" so they never clash with the HRM's web/api/db on that network.
+name: incentive
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  incentive-web:
+    build: .
+    image: incentive-web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Asia/Karachi
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DB_FILE: /data/incentives.db
+    volumes:
+      - incentive-data:/data
+    networks: [default, edge]
+    logging: *logging
+
+  # Nightly encrypted copy of the database into /srv/incentive-backups (default 3 AM, after the HRM's 2 AM backup).
+  incentive-backup:
+    build: ./deploy/backup
+    image: incentive-backup
+    restart: unless-stopped
+    user: "1000:1000"            # same user as the app, so it never changes the database files' owner
+    env_file: .env
+    environment:
+      TZ: Asia/Karachi
+      DB_FILE: /data/incentives.db
+    volumes:
+      - incentive-data:/data
+      - /srv/incentive-backups:/backups
+    depends_on:
+      incentive-web:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  incentive-data:
+
+networks:
+  edge:
+    external: true
+    name: wbt-people_default
