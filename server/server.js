@@ -309,8 +309,6 @@ function secureFlag(req) {
   return process.env.COOKIE_SECURE === '1' || proto === 'https' ? '; Secure' : '';
 }
 
-<<<<<<< HEAD
-=======
 // Behind Caddy every connection comes from the proxy. TRUST_PROXY=1 uses the client address it appends to
 // X-Forwarded-For instead (the last entry: earlier ones could be sent by the browser itself).
 function clientIp(req) {
@@ -318,16 +316,11 @@ function clientIp(req) {
   return fwd || req.socket.remoteAddress;
 }
 
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
 route('POST', /^\/api\/auth\/login$/, { auth: false }, async (req, res) => {
   const body = await readJson(req);
   const email = str(body.email, 200).toLowerCase();
   const password = typeof body.password === 'string' ? body.password : '';
-<<<<<<< HEAD
-  const key = `${req.socket.remoteAddress}|${email}`;
-=======
   const key = `${clientIp(req)}|${email}`;
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
   checkLoginThrottle(key);
   if (!email || !password) throw bad('Enter your email and password.');
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
@@ -353,8 +346,6 @@ route('POST', /^\/api\/auth\/logout$/, { auth: false }, async (req, res) => {
 
 route('GET', /^\/api\/me$/, {}, async (req, res, { user }) => send(res, 200, { user: publicUser(user) }));
 
-<<<<<<< HEAD
-=======
 // Anyone signed in can change their own password; it signs out their other devices, not this one.
 route('POST', /^\/api\/me\/password$/, {}, async (req, res, { user }) => {
   const body = await readJson(req);
@@ -375,7 +366,6 @@ route('POST', /^\/api\/me\/password$/, {}, async (req, res, { user }) => {
   send(res, 200, { ok: true });
 });
 
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
 route('GET', /^\/api\/config$/, { auth: false }, async (req, res) => send(res, 200, {
   currency: process.env.CURRENCY || 'USD', backdateLimitDays: BACKDATE_LIMIT_DAYS, maxPatients: MAX_PATIENTS,
   demo: process.env.DEMO ? process.env.DEMO !== '0' : dbm.SEED_DEMO, // demo sign-in shortcuts
@@ -692,10 +682,7 @@ route('GET', /^\/api\/users$/, { admin: true }, async (req, res) => {
       COALESCE(SUM(CASE WHEN r.status='approved' THEN r.patients END),0) AS patients,
       COALESCE(SUM(CASE WHEN r.status='approved' THEN r.patients*r.rate_cents END),0) AS amount_cents,
       COUNT(CASE WHEN r.status='pending' THEN 1 END) AS pending,
-<<<<<<< HEAD
-=======
       COUNT(r.id) AS records,
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
       MAX(r.date) AS last_entry
     FROM users u LEFT JOIN records r ON r.user_id = u.id
     GROUP BY u.id ORDER BY u.role DESC, u.active DESC, u.name`).all();
@@ -744,8 +731,6 @@ route('PATCH', /^\/api\/users\/(\d+)$/, { admin: true }, async (req, res, { user
   send(res, 200, { item: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id)) });
 });
 
-<<<<<<< HEAD
-=======
 // Permanently removes an employee and all their records (deactivating keeps them). Admin accounts can't be deleted.
 route('DELETE', /^\/api\/users\/(\d+)$/, { admin: true }, async (req, res, { params }) => {
   const id = Number(params[0]);
@@ -764,7 +749,6 @@ route('DELETE', /^\/api\/users\/(\d+)$/, { admin: true }, async (req, res, { par
   send(res, 200, { ok: true, records });
 });
 
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
 // ---------------------------------------------------------------- static files
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -822,14 +806,11 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-=======
 // Keep idle connections open longer than Caddy does (2 min), or Caddy may reuse one Node just closed and
 // answer 502. headersTimeout must stay above keepAliveTimeout.
 server.keepAliveTimeout = 125_000;
 server.headersTimeout = 130_000;
 
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
 server.listen(PORT, HOST, () => {
   console.log(`Incentive Tracker running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
 });

@@ -1,9 +1,5 @@
 // App bootstrap: session, shell, hash router and live updates (Server-Sent Events).
-<<<<<<< HEAD
-import { html, raw, $, $$, api, state, icon, brandMark, avatar, toast, plural, debounce, store } from './lib.js';
-=======
 import { html, raw, $, $$, api, state, icon, brandMark, avatar, toast, plural, debounce, store, modal, fieldError, setBusy } from './lib.js';
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
 import { renderLogin } from './views/login.js';
 import * as employee from './views/employee.js';
 import * as board from './views/leaderboard.js';
@@ -45,10 +41,7 @@ function renderShell() {
         <span class="live" id="live" title="Live updates"><span class="dot"></span><span class="live-text hide-sm">Connecting…</span></span>
         <button class="icon-btn bordered" type="button" data-action="theme" aria-label="Toggle dark mode" id="theme-btn"></button>
         <div class="user-chip">${avatar(u)}<div class="meta"><div class="name">${u.name}</div><div class="role">${u.title || (u.role === 'admin' ? 'Administrator' : 'Employee')}</div></div></div>
-<<<<<<< HEAD
-=======
         <button class="icon-btn bordered" type="button" data-action="password" aria-label="Change password" title="Change password">${icon('key')}</button>
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
         <button class="icon-btn bordered" type="button" data-action="logout" aria-label="Sign out" title="Sign out">${icon('logout')}</button>
       </div>
     </header>
@@ -159,11 +152,6 @@ document.addEventListener('click', async (e) => {
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem('it-theme', next); } catch { /* ignore */ }
     updateThemeButton();
-<<<<<<< HEAD
-  } else if (a.dataset.action === 'retry') navigate();
-});
-
-=======
   } else if (a.dataset.action === 'password') changePassword();
   else if (a.dataset.action === 'retry') navigate();
 });
@@ -211,7 +199,6 @@ function changePassword() {
   });
 }
 
->>>>>>> 722f47f74ff7b85c6d8bda5bb5a8f8e07aac7d22
 function signedIn(user) {
   state.user = user;
   store.set('it-last-email', user.email);
