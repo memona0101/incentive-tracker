@@ -123,6 +123,27 @@ export async function logRecord({ root, isStale }) {
     const hits = files.filter((f) => f.name.toLowerCase().includes(n));
     return hits.length === 1 ? hits[0] : undefined;
   };
+  // Suggestions: every typed word must appear in the name; names that start with the text come first.
+  const words = (v) => String(v || '').toLowerCase().split(/\s+/).filter(Boolean);
+  const fileMatches = (v) => {
+    const ws = words(v); if (!ws.length) return files;
+    const q = ws.join(' ');
+    const hits = files.filter((f) => { const n = f.name.toLowerCase(); return ws.every((w) => n.includes(w)); });
+    return [...hits.filter((f) => f.name.toLowerCase().startsWith(q)), ...hits.filter((f) => !f.name.toLowerCase().startsWith(q))];
+  };
+  const highlight = (name, v) => {
+    const lower = name.toLowerCase(); const ranges = [];
+    for (const w of words(v)) { let i = lower.indexOf(w); while (i !== -1) { ranges.push([i, i + w.length]); i = lower.indexOf(w, i + w.length); } }
+    if (!ranges.length) return name;
+    ranges.sort((a, b) => a[0] - b[0]);
+    const merged = [ranges[0]];
+    for (const r of ranges.slice(1)) { const last = merged[merged.length - 1]; if (r[0] <= last[1]) last[1] = Math.max(last[1], r[1]); else merged.push(r); }
+    const out = []; let at = 0;
+    for (const [s, e] of merged) { out.push(name.slice(at, s), html`<mark>${name.slice(s, e)}</mark>`); at = e; }
+    out.push(name.slice(at));
+    return out;
+  };
+  const combo = { key: null, items: [], active: -1 }; // the one open suggestion list
   let date = todayIso();
   let rows = [newRow()];
   let existing = [];
@@ -137,8 +158,16 @@ export async function logRecord({ root, isStale }) {
       <div class="entry-head"><span class="t">File ${i + 1}</span>
         <button type="button" class="icon-btn danger" data-remove aria-label="Remove file ${i + 1}" ${rows.length === 1 ? raw('disabled style="visibility:hidden"') : ''}>${icon('trash', 'sm')}</button></div>
       <div class="field"><label for="f-${row.key}">File name</label>
-        <input class="input" id="f-${row.key}" name="file-${row.key}" data-field="fileId" type="text" list="file-options" autocomplete="off" spellcheck="false"
-          placeholder="${files.length ? 'Type or pick a file name' : 'No files available yet'}" value="${row.fileText}" required ${files.length ? '' : raw('disabled')}></div>
+        <div class="combo">
+          <input class="input" id="f-${row.key}" name="file-${row.key}" data-field="fileId" type="text" autocomplete="off" spellcheck="false"
+            role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fl-${row.key}"
+            placeholder="${files.length ? 'Type or pick a file name' : 'No files available yet'}" value="${row.fileText}" required ${files.length ? '' : raw('disabled')}>
+          <button type="button" class="combo-toggle" data-combo-toggle tabindex="-1" aria-label="Show all files" ${files.length ? '' : raw('disabled')}>${icon('chevronRight', 'sm')}</button>
+          <div class="combo-pop" id="fp-${row.key}" hidden>
+            <div class="combo-meta" id="fm-${row.key}" aria-live="polite"></div>
+            <ul class="combo-list" id="fl-${row.key}" role="listbox" aria-label="Files"></ul>
+          </div>
+        </div></div>
       <div class="field"><label for="m-${row.key}">Measure</label>
         <input class="input" id="m-${row.key}" name="measure-${row.key}" data-field="measureName" type="text" maxlength="80" autocomplete="off"
           placeholder="e.g. Annual Wellness Visit or 101" value="${row.measureName}" aria-describedby="mh-${row.key}" required>
@@ -192,9 +221,84 @@ export async function logRecord({ root, isStale }) {
       if (f) r.fileText = f.name;
     }
     const notice = files.length ? '' : html`<div class="alert warn" role="status">${icon('alert')}<span>No files are available yet. Ask an administrator to add one on the Files page.</span></div>`;
-    const options = html`<datalist id="file-options">${files.map((f) => html`<option value="${f.name}"></option>`)}</datalist>`;
-    box.innerHTML = String(html`${notice}${options}${rows.map(rowHtml)}`);
+    combo.key = null;
+    box.innerHTML = String(html`${notice}${rows.map(rowHtml)}`);
   }
+
+  // ------------------------------------------------ file suggestions
+  function openCombo(row, { all = false } = {}) {
+    const input = $(`#f-${row.key}`, root); if (!input || input.disabled) return;
+    if (combo.key !== null && combo.key !== row.key) closeCombo();
+    const text = all ? '' : input.value;
+    combo.key = row.key; combo.items = fileMatches(text);
+    const exact = combo.items.findIndex((f) => f.id === Number(row.fileId));
+    combo.active = exact >= 0 ? exact : words(text).length && combo.items.length ? 0 : -1;
+    const list = $(`#fl-${row.key}`, root); const meta = $(`#fm-${row.key}`, root);
+    meta.textContent = !combo.items.length ? '' : words(text).length
+      ? `${plural(combo.items.length, 'match', 'matches')} of ${num(files.length)}` : `${plural(files.length, 'file')}`;
+    list.innerHTML = combo.items.length
+      ? String(html`${combo.items.map((f, i) => html`<li class="combo-opt" role="option" id="fo-${row.key}-${i}" data-index="${i}"
+          aria-selected="${f.id === Number(row.fileId)}">
+          <span class="combo-ico">${icon('file', 'sm')}</span><span class="combo-name">${highlight(f.name, text)}</span>
+          <span class="combo-check">${icon('check', 'sm')}</span></li>`)}`)
+      : String(html`<li class="combo-empty" role="presentation">${icon('search', 'sm')}<span>No file matches “${normName(text)}”.<br><small>Check the spelling, or ask an admin to add it.</small></span></li>`);
+    $(`#fp-${row.key}`, root).hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    input.closest('.combo').classList.add('open');
+    paintActive();
+  }
+  function closeCombo() {
+    if (combo.key === null) return;
+    const input = $(`#f-${combo.key}`, root);
+    if (input) {
+      input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant');
+      input.closest('.combo').classList.remove('open');
+      $(`#fp-${combo.key}`, root).hidden = true;
+    }
+    combo.key = null; combo.items = []; combo.active = -1;
+  }
+  function paintActive() {
+    const input = $(`#f-${combo.key}`, root); if (!input) return;
+    $$(`#fl-${combo.key} .combo-opt`, root).forEach((li, i) => li.classList.toggle('active', i === combo.active));
+    const cur = $(`#fo-${combo.key}-${combo.active}`, root);
+    if (cur) { input.setAttribute('aria-activedescendant', cur.id); cur.scrollIntoView({ block: 'nearest' }); }
+    else input.removeAttribute('aria-activedescendant');
+  }
+  function pickFile(row, f) {
+    const input = $(`#f-${row.key}`, root);
+    row.fileId = f.id; row.fileText = f.name;
+    if (input) { input.value = f.name; if (input.getAttribute('aria-invalid')) fieldError($('#log-form', root), null, null); }
+    closeCombo(); updateSummary();
+  }
+
+  root.addEventListener('focusin', (e) => {
+    const row = e.target.dataset?.field === 'fileId' && rowFor(e.target);
+    if (row) openCombo(row);
+  }, { signal: ac.signal });
+  root.addEventListener('focusout', (e) => {
+    if (combo.key !== null && !e.relatedTarget?.closest?.(`.entry-row[data-key="${combo.key}"] .combo`)) closeCombo();
+  }, { signal: ac.signal });
+  root.addEventListener('mousedown', (e) => {
+    // keep focus in the box while clicking a suggestion or the arrow
+    if (e.target.closest('.combo-pop, [data-combo-toggle]')) e.preventDefault();
+  }, { signal: ac.signal });
+  root.addEventListener('keydown', (e) => {
+    const t = e.target; if (t.dataset?.field !== 'fileId') return;
+    const row = rowFor(t); if (!row) return;
+    const open = combo.key === row.key;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) return openCombo(row, { all: !!row.fileId });
+      if (!combo.items.length) return;
+      const n = combo.items.length;
+      combo.active = e.key === 'ArrowDown' ? (combo.active + 1) % n : (combo.active <= 0 ? n - 1 : combo.active - 1);
+      paintActive();
+    } else if (e.key === 'Enter' && open && combo.items[combo.active]) {
+      e.preventDefault(); pickFile(row, combo.items[combo.active]);
+    } else if (e.key === 'Escape' && open) {
+      e.preventDefault(); closeCombo();
+    }
+  }, { signal: ac.signal });
 
   function updateSummary() {
     if (!$('#sum-total', root)) return;
@@ -231,7 +335,7 @@ export async function logRecord({ root, isStale }) {
     const t = e.target;
     const row = rowFor(t); if (!row) return;
     if (t.dataset.field === 'patients') row.patients = t.value === '' ? '' : Number(t.value);
-    if (t.dataset.field === 'fileId') { row.fileText = t.value; row.fileId = fileByName(t.value)?.id ?? ''; }
+    if (t.dataset.field === 'fileId') { row.fileText = t.value; row.fileId = fileByName(t.value)?.id ?? ''; openCombo(row); }
     if (t.dataset.field === 'measureName') row.measureName = t.value;
     if (t.getAttribute('aria-invalid')) fieldError($('#log-form', root), null, null);
     if (t.dataset.field === 'patients') checkPatients(row);
@@ -260,6 +364,14 @@ export async function logRecord({ root, isStale }) {
 
   root.addEventListener('click', (e) => {
     const t = e.target;
+    const opt = t.closest('.combo-opt');
+    if (opt) { const row = rowFor(opt); const f = combo.items[Number(opt.dataset.index)]; if (row && f) pickFile(row, f); return; }
+    const tog = t.closest('[data-combo-toggle]');
+    if (tog) {
+      const row = rowFor(tog); const input = $(`#f-${row.key}`, root);
+      if (combo.key === row.key) closeCombo(); else { input.focus(); openCombo(row, { all: true }); }
+      return;
+    }
     const step = t.closest('[data-step]');
     if (step) {
       const row = rowFor(step); const input = step.parentElement.querySelector('input');
